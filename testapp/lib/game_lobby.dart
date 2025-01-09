@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'firestore_controller.dart' as firestore;
-import 'swipe_game.dart'; // Ensure this import is present
+import 'swipe_game.dart';
 
 class GameLobby extends StatefulWidget {
   @override
@@ -13,12 +13,12 @@ class _GameLobbyState extends State<GameLobby> {
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
 
-  String? _gameCode; // Store the generated game code
+  String? _gameCode;
 
   void _createGame() async {
     String gameCode = await firestoreController.createGame();
     setState(() {
-      _gameCode = gameCode; // Update state with the new game code
+      _gameCode = gameCode;
     });
   }
 
@@ -27,11 +27,22 @@ class _GameLobbyState extends State<GameLobby> {
     String name = _nameController.text;
 
     if (code.isNotEmpty && name.isNotEmpty) {
-      await firestoreController.joinGame(code, name); // Join the game
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-            builder: (context) => SwipeGame(gameCode: code, playerName: name)),
+      try {
+        await firestoreController.joinGame(code, name);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) =>
+                  SwipeGame(gameCode: code, playerName: name)),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error joining game: $e')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please enter both game code and your name')),
       );
     }
   }

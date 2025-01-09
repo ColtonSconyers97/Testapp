@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:math';
 
+// Firestore controller to manage game data
 class FirestoreController {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
@@ -13,9 +14,15 @@ class FirestoreController {
   }
 
   Future<void> joinGame(String gameCode, String playerName) async {
-    await firestore.collection('games').doc(gameCode).update({
-      'players': FieldValue.arrayUnion([playerName]),
-    });
+    DocumentSnapshot doc =
+        await firestore.collection('games').doc(gameCode).get();
+    if (doc.exists) {
+      await firestore.collection('games').doc(gameCode).update({
+        'players': FieldValue.arrayUnion([playerName]),
+      });
+    } else {
+      throw Exception("Game not found");
+    }
   }
 
   Stream<DocumentSnapshot> getGameStream(String gameCode) {
@@ -23,6 +30,26 @@ class FirestoreController {
   }
 }
 
+// Card class to represent a playing card
+class Card {
+  final String suit;
+  final String value;
+
+  Card(this.suit, this.value);
+
+  @override
+  String toString() => '$value of $suit';
+}
+
+// Player class to represent a player in the game
+class Player {
+  String name;
+  List<Card> hand = [];
+
+  Player(this.name);
+}
+
+// Main widget for the Swipe Game
 class SwipeGame extends StatelessWidget {
   final String gameCode;
   final String playerName;
@@ -40,23 +67,7 @@ class SwipeGame extends StatelessWidget {
   }
 }
 
-class Card {
-  final String suit;
-  final String value;
-
-  Card(this.suit, this.value);
-
-  @override
-  String toString() => '$value of $suit';
-}
-
-class Player {
-  String name;
-  List<Card> hand = [];
-
-  Player(this.name);
-}
-
+// Game screen widget
 class GameScreen extends StatefulWidget {
   final String gameCode;
   final String playerName;
@@ -69,31 +80,31 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  late List<Player> players = [];
-
+  List<Player> players = [];
   List<Card> deck = [];
-
-  List<Card> playedCards = [];
 
   int currentPlayerIndex =
       -1; // Start with -1 to indicate no player is active yet
-
   Card? topCard;
 
   @override
   void initState() {
     super.initState();
 
+    // Create a new game in Firestore if it doesn't exist yet
+    FirestoreController().createGame(widget.gameCode);
+
     // Listen for changes in the game state from Firestore
     FirestoreController().getGameStream(widget.gameCode).listen((snapshot) {
       if (snapshot.exists) {
-        // Cast snapshot.data() to Map<String, dynamic>
         Map<String, dynamic>? data = snapshot.data() as Map<String, dynamic>?;
 
         if (data != null) {
           List<dynamic> playerNames = data['players'] ?? [];
           setState(() {
             players = playerNames.map((name) => Player(name)).toList();
+            currentPlayerIndex = players
+                .indexWhere((player) => player.name == widget.playerName);
 
             // Start the game when enough players have joined
             if (players.length >= 2 && deck.isEmpty) {
@@ -103,12 +114,6 @@ class _GameScreenState extends State<GameScreen> {
         }
       }
     });
-
-    // Add the current player to the players list
-    players.add(Player(widget.playerName));
-
-    // Create a new game in Firestore if it doesn't exist yet
-    FirestoreController().createGame(widget.gameCode);
 
     updatePlayersInFirestore(); // Update Firestore with current players
   }
@@ -125,10 +130,9 @@ class _GameScreenState extends State<GameScreen> {
   void startNewGame() {
     createDeck();
     dealCards();
+
     topCard = null;
-    playedCards.clear();
-    currentPlayerIndex =
-        players.indexWhere((player) => player.name == widget.playerName);
+
     setState(() {});
   }
 
@@ -187,13 +191,12 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   bool canPlayCard(Card card) {
-    if (topCard == null) return true;
-    if (card.value == '10') return true;
+    if (topCard == null || card.value == '10')
+      return true; // Special rule for playing a ten
 
     int topCardValue = getCardValue(topCard!);
-    int playedCardValue = getCardValue(card);
 
-    return playedCardValue <= topCardValue;
+    return getCardValue(card) <= topCardValue;
   }
 
   int getCardValue(Card card) {
@@ -216,12 +219,11 @@ class _GameScreenState extends State<GameScreen> {
       Player currentPlayer = players[currentPlayerIndex];
 
       currentPlayer.hand.remove(card);
-      playedCards.add(card);
+
       topCard = card;
 
       if (card.value == '10') {
         // Burn the played cards including the swipe card
-        playedCards.clear();
         topCard = null; // Current player gets to play again
       } else {
         currentPlayerIndex =
@@ -230,8 +232,9 @@ class _GameScreenState extends State<GameScreen> {
 
       // Check if the next player can play
       if (!canPlayerPlay(players[currentPlayerIndex])) {
-        players[currentPlayerIndex].hand.addAll(playedCards);
-        playedCards.clear();
+        players[currentPlayerIndex]
+            .hand
+            .addAll(players[currentPlayerIndex].hand);
         topCard = null;
       }
 
@@ -275,17 +278,21 @@ class _GameScreenState extends State<GameScreen> {
       appBar: AppBar(title: const Text('SWIPE Card Game')),
       body: Column(
         children: [
-          Text('Current Player: ${players[currentPlayerIndex].name}',
+          Text(
+              'Current Player: ${currentPlayerIndex >= 0 && currentPlayerIndex < players.length ? players[currentPlayerIndex].name : "Waiting..."}',
               style: const TextStyle(fontSize: 20)),
           Text('Top Card: ${topCard?.toString() ?? "None"}',
               style: const TextStyle(fontSize: 18)),
           const SizedBox(height: 20),
-          if (currentPlayerIndex ==
-              players.indexWhere((p) => p.name == widget.playerName))
-            Expanded(
-              child: ListView.builder(
-                itemCount: players[currentPlayerIndex].hand.length,
-                itemBuilder: (context, index) {
+          Expanded(
+            child: ListView.builder(
+              itemCount:
+                  currentPlayerIndex >= 0 && currentPlayerIndex < players.length
+                      ? players[currentPlayerIndex].hand.length
+                      : 0,
+              itemBuilder: (context, index) {
+                if (currentPlayerIndex >= 0 &&
+                    currentPlayerIndex < players.length) {
                   Card card = players[currentPlayerIndex].hand[index];
                   return ListTile(
                     title: Text(card.toString()),
@@ -294,11 +301,12 @@ class _GameScreenState extends State<GameScreen> {
                         ? Colors.green[100]
                         : Colors.grey[300],
                   );
-                },
-              ),
-            )
-          else
-            Text('Waiting for ${players[currentPlayerIndex].name} to play...'),
+                } else {
+                  return Container(); // Return an empty container if index is invalid.
+                }
+              },
+            ),
+          ),
         ],
       ),
     );
