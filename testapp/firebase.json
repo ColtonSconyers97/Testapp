@@ -1,0 +1,1 @@
+{"hosting":{"site":"swipe-game-c08ab","public":"build/web","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}]},"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"swipe-game-c08ab","configurations":{"web":"1:376403069893:web:d301ff42f60aa1f02319ac"}}}}}}

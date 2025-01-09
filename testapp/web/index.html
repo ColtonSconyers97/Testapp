@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Colton's Swipe Game</title>
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Import Firebase App and Firestore -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getFirestore } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDlCnWUQiD539S7e_a65WKfsbe_p6w3STk",
+      authDomain: "swipe-game-c08ab.firebaseapp.com",
+      projectId: "swipe-game-c08ab",
+      storageBucket: "swipe-game-c08ab.firebasestorage.app",
+      messagingSenderId: "376403069893",
+      appId: "1:376403069893:web:d301ff42f60aa1f02319ac",
+      measurementId: "G-LGRRBBLM71"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+  </script>
+</head>
+<body>
+  <script src="main.dart.js" type="application/javascript"></script>
+</body>
+</html>
